@@ -1,2 +1,3 @@
 first file
-second line`
+second line
+third line`
