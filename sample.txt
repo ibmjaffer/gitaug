@@ -1,0 +1,95 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "CreateDBSubnetGroup",
+  "States": {
+    "CreateDBSubnetGroup": {
+      "Type": "Task",
+      "Parameters": {
+        "DbSubnetGroupDescription": "Created from the SF",
+        "DbSubnetGroupName": "DBSNSF",
+        "SubnetIds": [
+          "subnet-44753e22",
+          "subnet-c80a5be9"
+        ]
+      },
+      "Resource": "arn:aws:states:::aws-sdk:rds:createDBSubnetGroup",
+      "Next": "CreateDBParameterGroup"
+    },
+    "CreateDBParameterGroup": {
+      "Type": "Task",
+      "Next": "CreateDBInstance",
+      "Parameters": {
+        "DbParameterGroupFamily": "mariadb10.5",
+        "DbParameterGroupName": "mariadbsf",
+        "Description": "mdpg"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:rds:createDBParameterGroup"
+    },
+    "CreateDBInstance": {
+      "Type": "Task",
+      "Parameters": {
+        "DbInstanceClass": "db.m3.xlarge",
+        "DbInstanceIdentifier": "SFRDS",
+        "Engine": "MariaDB",
+        "AllocatedStorage": 22,
+        "DbSubnetGroupName": "DBSNSF",
+        "DbParameterGroupName": "mariadbsf",
+        "MasterUserPassword": "qwerty1234",
+        "MasterUsername": "admin"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:rds:createDBInstance",
+      "Next": "Wait"
+    },
+    "Wait": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "DeleteDBInstance"
+    },
+    "DeleteDBInstance": {
+      "Type": "Task",
+      "Parameters": {
+        "DbInstanceIdentifier": "SFRDS",
+        "SkipFinalSnapshot": "true"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:rds:deleteDBInstance",
+      "Next": "Wait (1)"
+    },
+    "Wait (1)": {
+      "Type": "Wait",
+      "Seconds": 90,
+      "Next": "Parallel"
+    },
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "DeleteDBParameterGroup",
+          "States": {
+            "DeleteDBParameterGroup": {
+              "Type": "Task",
+              "Parameters": {
+                "DbParameterGroupName": "mariadbsf"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:rds:deleteDBParameterGroup",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DeleteDBSubnetGroup",
+          "States": {
+            "DeleteDBSubnetGroup": {
+              "Type": "Task",
+              "End": true,
+              "Parameters": {
+                "DbSubnetGroupName": "DBSNSF"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:rds:deleteDBSubnetGroup"
+            }
+          }
+        }
+      ],
+      "End": true
+    }
+  }
+}
